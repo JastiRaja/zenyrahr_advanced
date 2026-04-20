@@ -8,6 +8,12 @@ export type SystemRole =
   | 'manager'
   | 'employee';
 export type Role = SystemRole | (string & {});
+export type CapabilityPack =
+  | "recruitment"
+  | "finance"
+  | "compliance"
+  | "learning"
+  | "engagement";
 
 export function isMainPlatformAdmin(role: string | undefined | null): boolean {
   return (role || '').toLowerCase() === MAIN_PLATFORM_ADMIN_ROLE;
@@ -20,9 +26,11 @@ export interface User {
   firstName: string;
   fullName: string;
   role: Role;
+  permissionRole?: Role;
   department?: string;
   avatar?: string;
   organizationId?: number | null;
+  capabilityPacks?: CapabilityPack[];
 }
  
 // Keep these open to match existing route/menu checks across the app.
@@ -35,6 +43,43 @@ export interface Permission {
   action: Action;
   subject: Subject;
 }
+
+export const capabilityPackPermissions: Record<CapabilityPack, Permission[]> = {
+  recruitment: [
+    { action: "read", subject: "recruitment" },
+    { action: "manage", subject: "recruitment" },
+    { action: "approve", subject: "recruitment" },
+  ],
+  finance: [
+    { action: "read", subject: "finance" },
+    { action: "manage", subject: "finance" },
+    { action: "approve", subject: "reimbursements" },
+    { action: "read", subject: "tax" },
+    { action: "manage", subject: "tax" },
+  ],
+  compliance: [
+    { action: "read", subject: "compliance" },
+    { action: "manage", subject: "compliance" },
+    { action: "approve", subject: "compliance" },
+    { action: "read", subject: "audit" },
+    { action: "manage", subject: "audit" },
+  ],
+  learning: [
+    { action: "read", subject: "learning" },
+    { action: "manage", subject: "learning" },
+    { action: "assign", subject: "learning" },
+    { action: "read", subject: "certification" },
+    { action: "manage", subject: "certification" },
+  ],
+  engagement: [
+    { action: "read", subject: "engagement" },
+    { action: "manage", subject: "engagement" },
+    { action: "read", subject: "survey" },
+    { action: "manage", subject: "survey" },
+    { action: "read", subject: "recognition" },
+    { action: "manage", subject: "recognition" },
+  ],
+};
  
 // Helper type for permission inheritance
 type InheritedPermissions = {
@@ -113,11 +158,56 @@ export function resolvePermissionRole(role: string, organizationId?: number | nu
   return "employee";
 }
 
-export function getAllPermissions(role: Role, organizationId?: number | null): Permission[] {
+export function normalizeCapabilityPacks(
+  capabilityPacks: readonly string[] | null | undefined
+): CapabilityPack[] {
+  if (!capabilityPacks || capabilityPacks.length === 0) {
+    return [];
+  }
+  const allowed = new Set<CapabilityPack>([
+    "recruitment",
+    "finance",
+    "compliance",
+    "learning",
+    "engagement",
+  ]);
+  return capabilityPacks
+    .map((pack) => String(pack || "").toLowerCase())
+    .filter((pack): pack is CapabilityPack => allowed.has(pack as CapabilityPack));
+}
+
+export function getCapabilityPermissions(
+  capabilityPacks: readonly string[] | null | undefined
+): Permission[] {
+  const normalized = normalizeCapabilityPacks(capabilityPacks);
+  return normalized.flatMap((pack) => capabilityPackPermissions[pack]);
+}
+
+export function hasCapabilityPack(
+  capabilityPacks: readonly string[] | null | undefined,
+  requiredPack: CapabilityPack
+): boolean {
+  return normalizeCapabilityPacks(capabilityPacks).includes(requiredPack);
+}
+
+export function hasAnyCapabilityPack(
+  capabilityPacks: readonly string[] | null | undefined,
+  requiredPacks: readonly CapabilityPack[]
+): boolean {
+  const normalized = normalizeCapabilityPacks(capabilityPacks);
+  return requiredPacks.some((pack) => normalized.includes(pack));
+}
+
+export function getAllPermissions(
+  role: Role,
+  organizationId?: number | null,
+  capabilityPacks?: readonly string[] | null
+): Permission[] {
   const resolvedRole = resolvePermissionRole(String(role), organizationId);
   const inheritedRoles = roleInheritance[resolvedRole];
   const inheritedPermissions = inheritedRoles.flatMap(r => rolePermissions[r]);
-  return [...rolePermissions[resolvedRole], ...inheritedPermissions];
+  const packPermissions = getCapabilityPermissions(capabilityPacks);
+  return [...rolePermissions[resolvedRole], ...inheritedPermissions, ...packPermissions];
 }
  
 // Helper function to check if a permission implies another

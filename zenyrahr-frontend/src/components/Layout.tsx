@@ -52,6 +52,7 @@ const toAbsoluteLogoUrl = (rawUrl: string) => {
 
 const getNavigation = (
   hasPermission: (action: string, subject: string) => boolean,
+  hasCapabilityPack: (pack: "recruitment" | "finance" | "compliance" | "learning" | "engagement") => boolean,
   user: AppUser | null | undefined,
   menuSettings: OrganizationMenuSettings
 ): NavigationItem[] => {
@@ -122,6 +123,12 @@ const getNavigation = (
     href: "/self-service",
     icon: UserCircle,
     show: () => menuSettings.selfServiceEnabled,
+  },
+  {
+    name: "Recruitment",
+    href: "/recruitment",
+    icon: ClipboardCheck,
+    show: () => hasCapabilityPack("recruitment"),
   },
   {
     name: "Policies",
@@ -233,7 +240,7 @@ const getNavigation = (
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, hasCapabilityPack } = useAuth();
   const { menuSettings } = useOrganizationMenuSettings();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -262,7 +269,7 @@ export default function Layout() {
     loadOrganizationBranding();
   }, [user?.id]);
 
-  const navigation = getNavigation(hasPermission, user, menuSettings);
+  const navigation = getNavigation(hasPermission, hasCapabilityPack, user, menuSettings);
 
   const handleLogout = () => {
     logout();

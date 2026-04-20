@@ -227,9 +227,11 @@ public class AuthController {
             response.put("name", authenticatedUser.getName().toString());
             response.put("firstName", authenticatedUser.getFirstName().toString());
             response.put("role", authenticatedUser.getRole());
+            response.put("baseSystemRole", organizationRoleService.resolveBaseSystemRoleForUser(authenticatedUser));
             response.put("organizationId", authenticatedUser.getOrganization() != null
                     ? authenticatedUser.getOrganization().getId()
                     : null);
+            response.put("capabilityPacks", organizationRoleService.resolveCapabilityPacksForUser(authenticatedUser));
             response.put("usernameExists", true);
             response.put("accessToken", accessToken);
             response.put("refreshToken", refreshToken);

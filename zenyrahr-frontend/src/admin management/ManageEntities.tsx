@@ -19,6 +19,15 @@ export default function ManageEntities() {
   const isMainAdmin = isMainPlatformAdmin(currentRole);
   const isOrgAdmin = currentRole === "org_admin";
   const canManageRoleCatalog = isMainAdmin || isOrgAdmin;
+  type CapabilityPack = "recruitment" | "finance" | "compliance" | "learning" | "engagement";
+  const capabilityPackOptions: CapabilityPack[] = [
+    "recruitment",
+    "finance",
+    "compliance",
+    "learning",
+    "engagement",
+  ];
+
   const [designations, setDesignations] = useState<
     { id: number; name: string; organization?: { id: number } }[]
   >([]);
@@ -29,7 +38,13 @@ export default function ManageEntities() {
     { id: number; name: string; organization?: { id: number } }[]
   >([]);
   const [roles, setRoles] = useState<
-    { id: number; name: string; organization?: { id: number } }[]
+    {
+      id: number;
+      name: string;
+      baseSystemRole?: "org_admin" | "hr" | "manager" | "employee";
+      capabilityPacks?: CapabilityPack[];
+      organization?: { id: number };
+    }[]
   >([]);
   const [organizations, setOrganizations] = useState<
     {
@@ -48,6 +63,10 @@ export default function ManageEntities() {
   const [newDepartment, setNewDepartment] = useState("");
   const [newWorkLocation, setNewWorkLocation] = useState("");
   const [newRole, setNewRole] = useState("");
+  const [newRoleBaseSystemRole, setNewRoleBaseSystemRole] = useState<
+    "org_admin" | "hr" | "manager" | "employee"
+  >("employee");
+  const [newRoleCapabilityPacks, setNewRoleCapabilityPacks] = useState<CapabilityPack[]>([]);
   const [newOrganization, setNewOrganization] = useState<{
     name: string;
     address: string;
@@ -285,9 +304,15 @@ export default function ManageEntities() {
         return;
       }
       const query = isMainAdmin && selectedOrgId ? `?organizationId=${selectedOrgId}` : "";
-      const response = await api.post(`/api/roles${query}`, { name: newRole });
+      const response = await api.post(`/api/roles${query}`, {
+        name: newRole,
+        baseSystemRole: newRoleBaseSystemRole,
+        capabilityPacks: newRoleCapabilityPacks,
+      });
       setRoles((prev) => [...prev, response.data]);
       setNewRole("");
+      setNewRoleBaseSystemRole("employee");
+      setNewRoleCapabilityPacks([]);
       setFeedback({ type: "success", text: "Role added successfully." });
     } catch (error: any) {
       console.error("Error adding role:", error);
@@ -297,6 +322,12 @@ export default function ManageEntities() {
         "Error adding role.";
       setFeedback({ type: "error", text: String(message) });
     }
+  };
+
+  const toggleRoleCapabilityPack = (pack: CapabilityPack) => {
+    setNewRoleCapabilityPacks((prev) =>
+      prev.includes(pack) ? prev.filter((item) => item !== pack) : [...prev, pack]
+    );
   };
 
   const handleDeleteRole = async (roleId: number) => {
@@ -822,6 +853,44 @@ export default function ManageEntities() {
                 <FaPlus className="mr-1" /> Add
               </button>
             </div>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500">
+                  Base System Role
+                </label>
+                <select
+                  value={newRoleBaseSystemRole}
+                  onChange={(e) =>
+                    setNewRoleBaseSystemRole(
+                      e.target.value as "org_admin" | "hr" | "manager" | "employee"
+                    )
+                  }
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-sky-500 focus:outline-none"
+                >
+                  <option value="employee">employee</option>
+                  <option value="manager">manager</option>
+                  <option value="hr">hr</option>
+                  <option value="org_admin">org_admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-500">
+                  Capability Packs
+                </label>
+                <div className="mt-1 flex flex-wrap gap-3">
+                  {capabilityPackOptions.map((pack) => (
+                    <label key={pack} className="inline-flex items-center gap-1 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={newRoleCapabilityPacks.includes(pack)}
+                        onChange={() => toggleRoleCapabilityPack(pack)}
+                      />
+                      {pack}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           )}
           <table className="mt-3 min-w-full border border-slate-200">
@@ -837,7 +906,13 @@ export default function ManageEntities() {
               {roles.map((role) => (
                 <tr key={role.id}>
                   <td className="whitespace-nowrap px-3 py-2 text-sm text-slate-800">
-                    {role.name}
+                    <div className="font-medium">{role.name}</div>
+                    <div className="text-xs text-slate-500">
+                      base: {role.baseSystemRole || "employee"}
+                      {role.capabilityPacks && role.capabilityPacks.length > 0
+                        ? ` | packs: ${role.capabilityPacks.join(", ")}`
+                        : ""}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-sm font-medium">
                     {canManageRoleCatalog ? (
