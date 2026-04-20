@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   User,
   Role,
+  CapabilityPack,
   getAllPermissions,
+  normalizeCapabilityPacks,
+  hasCapabilityPack as userHasCapabilityPack,
+  hasAnyCapabilityPack as userHasAnyCapabilityPack,
   hasPermission as userHasPermission,
 } from "../types/auth";
 
@@ -12,6 +16,8 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   hasPermission: (action: string, subject: string) => boolean;
+  hasCapabilityPack: (pack: CapabilityPack) => boolean;
+  hasAnyCapabilityPack: (packs: readonly CapabilityPack[]) => boolean;
 }
 
 interface LoginResponse {
@@ -20,7 +26,9 @@ interface LoginResponse {
   firstName: string;
   name?: string;
   role: string;
+  baseSystemRole?: string;
   organizationId?: number | null;
+  capabilityPacks?: string[] | null;
   accessToken: string;
   refreshToken: string;
   redirectToResetPassword: boolean;
@@ -82,7 +90,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         firstName: data.firstName,
         fullName: data.name || data.firstName,
         role: normalizedRole,
+        permissionRole: ((data.baseSystemRole || data.role || "").toLowerCase() as Role),
         organizationId: data.organizationId ?? null,
+        capabilityPacks: normalizeCapabilityPacks(data.capabilityPacks),
       };
 
       setUser(loggedInUser);
@@ -105,12 +115,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const hasPermission = (action: string, subject: string) => {
     if (!user) return false;
-    return userHasPermission(getAllPermissions(user.role, user.organizationId), action, subject);
+    return userHasPermission(
+      getAllPermissions(user.permissionRole || user.role, user.organizationId, user.capabilityPacks),
+      action,
+      subject
+    );
+  };
+
+  const hasCapabilityPack = (pack: CapabilityPack) => {
+    if (!user) return false;
+    return userHasCapabilityPack(user.capabilityPacks, pack);
+  };
+
+  const hasAnyCapabilityPack = (packs: readonly CapabilityPack[]) => {
+    if (!user) return false;
+    return userHasAnyCapabilityPack(user.capabilityPacks, packs);
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, isAuthenticated: !!user, hasPermission }}
+      value={{
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        hasPermission,
+        hasCapabilityPack,
+        hasAnyCapabilityPack,
+      }}
     >
       {children}
     </AuthContext.Provider>
