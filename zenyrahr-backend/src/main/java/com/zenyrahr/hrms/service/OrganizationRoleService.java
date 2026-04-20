@@ -10,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -23,6 +26,9 @@ public class OrganizationRoleService {
 
     private static final List<String> DEFAULT_ROLES = List.of("org_admin");
     private static final List<String> NON_DELETABLE_ROLES = List.of("org_admin");
+    private static final Set<String> ALLOWED_BASE_SYSTEM_ROLES = Set.of("org_admin", "hr", "manager", "employee");
+    private static final Set<String> ALLOWED_CAPABILITY_PACKS =
+            Set.of("recruitment", "finance", "compliance", "learning", "engagement");
 
     private final OrganizationRoleRepository organizationRoleRepository;
     private final OrganizationRepository organizationRepository;
@@ -38,7 +44,7 @@ public class OrganizationRoleService {
         return organizationRoleRepository.findByOrganization_IdOrderByNameAsc(scopedOrgId);
     }
 
-    public OrganizationRole createRole(Long organizationId, String rawName) {
+    public OrganizationRole createRole(Long organizationId, String rawName, String rawBaseSystemRole, List<String> rawCapabilityPacks) {
         Employee actor = tenantAccessService.requireCurrentEmployee();
         tenantAccessService.assertOrganizationActive(actor);
         assertCanManageRoleCatalog(actor);
@@ -51,6 +57,8 @@ public class OrganizationRoleService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Organization not found"));
         OrganizationRole role = new OrganizationRole();
         role.setName(normalized);
+        role.setBaseSystemRole(normalizeBaseSystemRole(rawBaseSystemRole));
+        role.setCapabilityPacks(normalizeCapabilityPacks(rawCapabilityPacks));
         role.setOrganization(organization);
         return organizationRoleRepository.save(role);
     }
@@ -98,6 +106,8 @@ public class OrganizationRoleService {
         List<OrganizationRole> defaults = DEFAULT_ROLES.stream().map(name -> {
             OrganizationRole role = new OrganizationRole();
             role.setName(name);
+            role.setBaseSystemRole(name);
+            role.setCapabilityPacks(List.of());
             role.setOrganization(organization);
             return role;
         }).toList();
@@ -123,6 +133,37 @@ public class OrganizationRoleService {
         }
     }
 
+    public List<String> resolveCapabilityPacksForUser(Employee employee) {
+        if (employee == null || employee.getRole() == null || tenantAccessService.isMainAdmin(employee)) {
+            return List.of();
+        }
+        Long organizationId = tenantAccessService.requireOrganizationId(employee);
+        return organizationRoleRepository
+                .findByNameIgnoreCaseAndOrganization_Id(employee.getRole(), organizationId)
+                .map(role -> role.getCapabilityPacks() == null ? List.<String>of() : role.getCapabilityPacks())
+                .orElse(List.of());
+    }
+
+    public String resolveBaseSystemRoleForUser(Employee employee) {
+        if (employee == null || employee.getRole() == null) {
+            return "employee";
+        }
+        String role = employee.getRole().trim().toLowerCase(Locale.ROOT);
+        if (TenantAccessService.MAIN_PLATFORM_ADMIN_ROLE.equals(role)) {
+            return role;
+        }
+        if (ALLOWED_BASE_SYSTEM_ROLES.contains(role)) {
+            return role;
+        }
+        if (employee.getOrganization() == null || employee.getOrganization().getId() == null) {
+            return "employee";
+        }
+        return organizationRoleRepository
+                .findByNameIgnoreCaseAndOrganization_Id(role, employee.getOrganization().getId())
+                .map(OrganizationRole::getBaseSystemRole)
+                .orElse("employee");
+    }
+
     private void assertCanManageRoleCatalog(Employee actor) {
         if (tenantAccessService.isMainAdmin(actor) || tenantAccessService.isOrgAdmin(actor)) {
             return;
@@ -145,5 +186,39 @@ public class OrganizationRoleService {
             throw new ResponseStatusException(BAD_REQUEST, "Role name '" + TenantAccessService.MAIN_PLATFORM_ADMIN_ROLE + "' is reserved");
         }
         return value;
+    }
+
+    private String normalizeBaseSystemRole(String input) {
+        String normalized = input == null || input.isBlank() ? "employee" : input.trim().toLowerCase(Locale.ROOT);
+        if (!ALLOWED_BASE_SYSTEM_ROLES.contains(normalized)) {
+            throw new ResponseStatusException(
+                    BAD_REQUEST,
+                    "baseSystemRole must be one of org_admin, hr, manager, employee"
+            );
+        }
+        return normalized;
+    }
+
+    private List<String> normalizeCapabilityPacks(List<String> input) {
+        if (input == null || input.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String pack : input) {
+            String value = pack == null ? "" : pack.trim().toLowerCase(Locale.ROOT);
+            if (value.isBlank()) {
+                continue;
+            }
+            if (!ALLOWED_CAPABILITY_PACKS.contains(value)) {
+                throw new ResponseStatusException(
+                        BAD_REQUEST,
+                        "Unsupported capability pack: " + value
+                );
+            }
+            if (!normalized.contains(value)) {
+                normalized.add(value);
+            }
+        }
+        return normalized;
     }
 }

@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/roles")
@@ -25,10 +24,17 @@ public class OrganizationRoleController {
 
     @PostMapping
     public ResponseEntity<OrganizationRole> createRole(
-            @RequestBody Map<String, String> payload,
+            @RequestBody RoleCreateRequest payload,
             @RequestParam(required = false) Long organizationId
     ) {
-        return ResponseEntity.ok(organizationRoleService.createRole(organizationId, payload.get("name")));
+        return ResponseEntity.ok(
+                organizationRoleService.createRole(
+                        organizationId,
+                        payload.name(),
+                        payload.baseSystemRole(),
+                        payload.capabilityPacks()
+                )
+        );
     }
 
     @DeleteMapping("/{id}")
@@ -39,4 +45,10 @@ public class OrganizationRoleController {
         organizationRoleService.deleteRole(id, organizationId);
         return ResponseEntity.noContent().build();
     }
+
+    public record RoleCreateRequest(
+            String name,
+            String baseSystemRole,
+            List<String> capabilityPacks
+    ) {}
 }

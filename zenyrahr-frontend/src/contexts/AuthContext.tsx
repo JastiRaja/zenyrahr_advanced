@@ -26,6 +26,7 @@ interface LoginResponse {
   firstName: string;
   name?: string;
   role: string;
+  baseSystemRole?: string;
   organizationId?: number | null;
   capabilityPacks?: string[] | null;
   accessToken: string;
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         firstName: data.firstName,
         fullName: data.name || data.firstName,
         role: normalizedRole,
+        permissionRole: ((data.baseSystemRole || data.role || "").toLowerCase() as Role),
         organizationId: data.organizationId ?? null,
         capabilityPacks: normalizeCapabilityPacks(data.capabilityPacks),
       };
@@ -114,7 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const hasPermission = (action: string, subject: string) => {
     if (!user) return false;
     return userHasPermission(
-      getAllPermissions(user.role, user.organizationId, user.capabilityPacks),
+      getAllPermissions(user.permissionRole || user.role, user.organizationId, user.capabilityPacks),
       action,
       subject
     );

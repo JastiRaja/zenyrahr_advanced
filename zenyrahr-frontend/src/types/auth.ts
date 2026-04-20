@@ -26,6 +26,7 @@ export interface User {
   firstName: string;
   fullName: string;
   role: Role;
+  permissionRole?: Role;
   department?: string;
   avatar?: string;
   organizationId?: number | null;
