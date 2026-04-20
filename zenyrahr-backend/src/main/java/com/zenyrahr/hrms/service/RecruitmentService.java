@@ -42,9 +42,13 @@ public class RecruitmentService {
         return jobPostingRepository.findByOrganization_IdOrderByIdDesc(scopedOrgId);
     }
 
-    public List<Candidate> listCandidates(Employee actor, Long organizationId) {
+    public List<Candidate> listCandidates(Employee actor, Long organizationId, String stage) {
         Long scopedOrgId = tenantAccessService.resolveOrganizationIdForScopedQuery(actor, organizationId);
-        return candidateRepository.findByOrganization_IdOrderByIdDesc(scopedOrgId);
+        RecruitmentStage scopedStage = normalizeStageFilter(stage);
+        if (scopedStage == null) {
+            return candidateRepository.findByOrganization_IdOrderByIdDesc(scopedOrgId);
+        }
+        return candidateRepository.findByOrganization_IdAndStageOrderByIdDesc(scopedOrgId, scopedStage);
     }
 
     public JobPosting createJobPosting(
@@ -184,6 +188,13 @@ public class RecruitmentService {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(BAD_REQUEST, "Invalid recruitment stage");
         }
+    }
+
+    private RecruitmentStage normalizeStageFilter(String stage) {
+        if (stage == null || stage.trim().isBlank() || "ALL".equalsIgnoreCase(stage.trim())) {
+            return null;
+        }
+        return normalizeStage(stage);
     }
 
     private Long resolveOwnerEmployeeId(Employee actor, Long ownerEmployeeId) {

@@ -21,6 +21,9 @@ export default function Candidates() {
   const [transitioningId, setTransitioningId] = useState<number | null>(null);
   const [lastCreatedCandidateId, setLastCreatedCandidateId] = useState<number | null>(null);
   const [nextStageByCandidateId, setNextStageByCandidateId] = useState<Record<number, string>>({});
+  const [candidateStageFilter, setCandidateStageFilter] = useState<
+    "ALL" | "APPLIED" | "SHORTLISTED" | "INTERVIEW" | "OFFERED" | "HIRED" | "REJECTED"
+  >("ALL");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [source, setSource] = useState("");
@@ -43,7 +46,7 @@ export default function Candidates() {
         setLoading(true);
         setError("");
         const [candidateRows, jobRows] = await Promise.all([
-          getCandidates(user?.organizationId),
+          getCandidates(user?.organizationId, candidateStageFilter),
           getJobPostings(user?.organizationId),
         ]);
         setCandidates(candidateRows);
@@ -55,7 +58,7 @@ export default function Candidates() {
       }
     };
     void load();
-  }, [user?.organizationId]);
+  }, [user?.organizationId, candidateStageFilter]);
 
   if (loading) {
     return <div className="text-slate-600">Loading candidates...</div>;
@@ -108,7 +111,7 @@ export default function Candidates() {
         },
         user?.organizationId
       );
-      const rows = await getCandidates(user?.organizationId);
+      const rows = await getCandidates(user?.organizationId, candidateStageFilter);
       setCandidates(rows);
       setLastCreatedCandidateId(rows[0]?.id ?? null);
       setFullName("");
@@ -158,7 +161,7 @@ export default function Candidates() {
         },
         user?.organizationId
       );
-      const rows = await getCandidates(user?.organizationId);
+      const rows = await getCandidates(user?.organizationId, candidateStageFilter);
       setCandidates(rows);
       setCreateSuccess("Candidate stage updated.");
     } catch (err: any) {
@@ -171,6 +174,35 @@ export default function Candidates() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-slate-900">Candidates</h1>
+      <div className="rounded-md border border-slate-200 bg-white p-3">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+          Filter by Stage
+        </label>
+        <select
+          value={candidateStageFilter}
+          onChange={(e) =>
+            setCandidateStageFilter(
+              e.target.value as
+                | "ALL"
+                | "APPLIED"
+                | "SHORTLISTED"
+                | "INTERVIEW"
+                | "OFFERED"
+                | "HIRED"
+                | "REJECTED"
+            )
+          }
+          className="mt-2 block rounded-md border border-slate-300 px-3 py-2 text-sm"
+        >
+          <option value="ALL">ALL</option>
+          <option value="APPLIED">APPLIED</option>
+          <option value="SHORTLISTED">SHORTLISTED</option>
+          <option value="INTERVIEW">INTERVIEW</option>
+          <option value="OFFERED">OFFERED</option>
+          <option value="HIRED">HIRED</option>
+          <option value="REJECTED">REJECTED</option>
+        </select>
+      </div>
       <form
         onSubmit={handleCreateCandidate}
         className="rounded-md border border-slate-200 bg-white p-4"

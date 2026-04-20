@@ -78,11 +78,19 @@ export const getJobPostings = async (
 };
 
 export const getCandidates = async (
-  organizationId?: number | null
+  organizationId?: number | null,
+  stage?: "APPLIED" | "SHORTLISTED" | "INTERVIEW" | "OFFERED" | "HIRED" | "REJECTED" | "ALL"
 ): Promise<Candidate[]> => {
   try {
+    const params: Record<string, unknown> = {};
+    if (organizationId) {
+      params.organizationId = organizationId;
+    }
+    if (stage && stage !== "ALL") {
+      params.stage = stage;
+    }
     const response = await api.get("/api/recruitment/candidates", {
-      params: organizationId ? { organizationId } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return response.data;
   } catch (error) {

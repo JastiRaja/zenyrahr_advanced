@@ -41,11 +41,12 @@ public class RecruitmentController {
 
     @GetMapping("/candidates")
     public ResponseEntity<List<CandidateResponse>> getCandidates(
-            @RequestParam(required = false) Long organizationId
+            @RequestParam(required = false) Long organizationId,
+            @RequestParam(required = false) String stage
     ) {
         Employee actor = tenantAccessService.requireCurrentEmployee();
         tenantAccessService.assertOrganizationActive(actor);
-        List<CandidateResponse> rows = recruitmentService.listCandidates(actor, organizationId).stream()
+        List<CandidateResponse> rows = recruitmentService.listCandidates(actor, organizationId, stage).stream()
                 .map(this::toCandidateResponse)
                 .toList();
         return ResponseEntity.ok(rows);
