@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,7 +63,10 @@ public class RecruitmentController {
                 organizationId,
                 payload.title(),
                 payload.department(),
-                payload.status()
+                payload.status(),
+                payload.description(),
+                payload.sourceChannel(),
+                payload.ownerEmployeeId()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toJobPostingResponse(saved));
     }
@@ -79,9 +84,31 @@ public class RecruitmentController {
                 payload.fullName(),
                 payload.email(),
                 payload.stage(),
-                payload.jobPostingId()
+                payload.jobPostingId(),
+                payload.source(),
+                payload.notes(),
+                payload.ownerEmployeeId()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toCandidateResponse(saved));
+    }
+
+    @PutMapping("/candidates/{id}/stage")
+    public ResponseEntity<CandidateResponse> transitionCandidateStage(
+            @PathVariable Long id,
+            @RequestBody CandidateStageTransitionRequest payload,
+            @RequestParam(required = false) Long organizationId
+    ) {
+        Employee actor = tenantAccessService.requireCurrentEmployee();
+        tenantAccessService.assertOrganizationActive(actor);
+        Candidate updated = recruitmentService.transitionCandidateStage(
+                actor,
+                organizationId,
+                id,
+                payload.stage(),
+                payload.notes(),
+                payload.rejectionReason()
+        );
+        return ResponseEntity.ok(toCandidateResponse(updated));
     }
 
     private JobPostingResponse toJobPostingResponse(JobPosting entity) {
@@ -89,7 +116,12 @@ public class RecruitmentController {
                 entity.getId(),
                 entity.getTitle(),
                 entity.getDepartment(),
-                entity.getStatus()
+                entity.getStatus(),
+                entity.getDescription(),
+                entity.getSourceChannel(),
+                entity.getOwnerEmployeeId(),
+                entity.getOpenedAt() != null ? entity.getOpenedAt().toString() : null,
+                entity.getClosedAt() != null ? entity.getClosedAt().toString() : null
         );
     }
 
@@ -98,16 +130,64 @@ public class RecruitmentController {
                 entity.getId(),
                 entity.getFullName(),
                 entity.getEmail(),
-                entity.getStage() != null ? entity.getStage().name() : null
+                entity.getStage() != null ? entity.getStage().name() : null,
+                entity.getSource(),
+                entity.getOwnerEmployeeId(),
+                entity.getAppliedAt() != null ? entity.getAppliedAt().toString() : null,
+                entity.getStageUpdatedAt() != null ? entity.getStageUpdatedAt().toString() : null,
+                entity.getNotes(),
+                entity.getRejectionReason()
         );
     }
 
-    public record JobPostingResponse(Long id, String title, String department, String status) {}
+    public record JobPostingResponse(
+            Long id,
+            String title,
+            String department,
+            String status,
+            String description,
+            String sourceChannel,
+            Long ownerEmployeeId,
+            String openedAt,
+            String closedAt
+    ) {}
 
-    public record CandidateResponse(Long id, String fullName, String email, String stage) {}
+    public record CandidateResponse(
+            Long id,
+            String fullName,
+            String email,
+            String stage,
+            String source,
+            Long ownerEmployeeId,
+            String appliedAt,
+            String stageUpdatedAt,
+            String notes,
+            String rejectionReason
+    ) {}
 
-    public record JobPostingCreateRequest(String title, String department, String status) {}
+    public record JobPostingCreateRequest(
+            String title,
+            String department,
+            String status,
+            String description,
+            String sourceChannel,
+            Long ownerEmployeeId
+    ) {}
 
-    public record CandidateCreateRequest(String fullName, String email, String stage, Long jobPostingId) {}
+    public record CandidateCreateRequest(
+            String fullName,
+            String email,
+            String stage,
+            Long jobPostingId,
+            String source,
+            String notes,
+            Long ownerEmployeeId
+    ) {}
+
+    public record CandidateStageTransitionRequest(
+            String stage,
+            String notes,
+            String rejectionReason
+    ) {}
 }
 
