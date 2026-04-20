@@ -1,0 +1,41 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  JAR_NAME: "hrms-0.0.1-SNAPSHOT.jar"
+  TARGET_DIR: "/home/ubuntu/hrms-back-end"
+  SERVICE_NAME: "hrms"
+
+before_script:
+  - echo "Starting CI/CD Pipeline"
+
+build:
+  stage: build
+  image: maven:3.9.6-eclipse-temurin-21
+
+  script: 
+    - java -version
+    - mvn --version
+    - mvn clean package -DskipTests
+
+  artifacts:
+    paths:
+      - target/hrms-*.jar
+
+deploy:
+  stage: deploy
+  only:
+    - main  # Change this if you want to trigger on other branches\
+  before_script:
+    - echo "$SSH_PRIVATE_KEY" > private_key.pem
+    - chmod 600 private_key.pem
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts     
+  script:
+   - echo "Deploying to EC2..."
+    - scp -i private_key.pem target/hrms-*.jar ubuntu@$EC2_HOST:/home/ubuntu/hrms-back-end/target/
+    - ssh -i private_key.pem ubuntu@$EC2_HOST "sudo systemctl restart hrms"
+  environment:
+    name: production
+    url: https://backend.talvox.in
