@@ -230,6 +230,7 @@ public class AuthController {
             response.put("organizationId", authenticatedUser.getOrganization() != null
                     ? authenticatedUser.getOrganization().getId()
                     : null);
+            response.put("capabilityPacks", List.of());
             response.put("usernameExists", true);
             response.put("accessToken", accessToken);
             response.put("refreshToken", refreshToken);

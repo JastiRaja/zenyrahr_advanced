@@ -53,6 +53,9 @@ import AdminPayslipManagement from "./pages/payroll/AdminPayslipManagement";
 import Organizations from "./pages/admin/Organizations";
 import ApprovalHierarchy from "./pages/admin/ApprovalHierarchy";
 import OrganizationPolicies from "./pages/OrganizationPolicies";
+import Recruitment from "./pages/Recruitment";
+import Jobs from "./pages/recruitment/Jobs";
+import Candidates from "./pages/recruitment/Candidates";
 
 export default function App() {
   return (
@@ -529,6 +532,30 @@ export default function App() {
                 }
               />
               <Route path="wellness" element={<Wellness />} />
+              <Route
+                path="recruitment"
+                element={
+                  <ProtectedRoute requiredCapabilityPacks={["recruitment"]}>
+                    <Recruitment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="recruitment/jobs"
+                element={
+                  <ProtectedRoute requiredCapabilityPacks={["recruitment"]}>
+                    <Jobs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="recruitment/candidates"
+                element={
+                  <ProtectedRoute requiredCapabilityPacks={["recruitment"]}>
+                    <Candidates />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="organization-policies" element={<OrganizationPolicies />} />
               {/* Project Management Route */}
               <Route
